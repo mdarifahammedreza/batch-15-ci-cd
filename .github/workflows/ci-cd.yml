@@ -57,6 +57,20 @@ jobs:
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
+          # Ensure APP_DIR exists and is writable by the deploy user
+          if ! mkdir -p "$APP_DIR" 2>/dev/null || [ ! -w "$APP_DIR" ]; then
+            echo "No write access to $APP_DIR, trying passwordless sudo..."
+            if sudo -n true 2>/dev/null; then
+              sudo mkdir -p "$APP_DIR"
+              sudo chown -R "$(id -u):$(id -g)" "$APP_DIR"
+            else
+              echo "ERROR: $(whoami) cannot write to $APP_DIR and has no passwordless sudo."
+              echo "Run once on the server: sudo mkdir -p $APP_DIR && sudo chown -R $(whoami):$(whoami) $APP_DIR"
+              echo "Or set the APP_DIR secret to a path under \$HOME, e.g. $HOME/next-japan"
+              exit 1
+            fi
+          fi
+
           if [ ! -d "$APP_DIR/.git" ]; then
             git clone "$REPO" "$APP_DIR"
           fi
