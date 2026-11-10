@@ -53,9 +53,23 @@ jobs:
             "APP_NAME='$APP_NAME' APP_DIR='$APP_DIR' APP_PORT='$APP_PORT' REPO='https://github.com/${{ github.repository }}.git' SHA='${{ github.sha }}' bash -s" <<'EOF'
           set -euo pipefail
 
-          # Load nvm if node was installed via nvm
+          # Non-interactive SSH doesn't load ~/.bashrc, so find node manually
+          export PATH="$HOME/.local/bin:$HOME/.volta/bin:$HOME/.fnm:/usr/local/bin:$PATH"
           export NVM_DIR="$HOME/.nvm"
+          set +u  # nvm is not compatible with nounset
           [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          command -v fnm >/dev/null && eval "$(fnm env)"
+
+          # Still no node? Install Node 20 via nvm (user-level, no sudo needed)
+          if ! command -v npm >/dev/null; then
+            echo "npm not found, installing Node 20 via nvm..."
+            curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | PROFILE=/dev/null bash
+            . "$NVM_DIR/nvm.sh"
+            nvm install 20
+            nvm alias default 20
+          fi
+          set -u
+          echo "Using node $(node -v), npm $(npm -v)"
 
           # Ensure APP_DIR exists and is writable by the deploy user
           if ! mkdir -p "$APP_DIR" 2>/dev/null || [ ! -w "$APP_DIR" ]; then
